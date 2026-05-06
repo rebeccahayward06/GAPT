@@ -25,7 +25,7 @@ def extract_features(window: np.ndarray) ->np.ndarray:#loops 9 times ( once per 
     for i in range(window.shape[1]):#grabs one column, shape(60)
         ch=window[:,i]
 
-        feats.appened(float(np.mean(ch))) #average value
+        feats.append(float(np.mean(ch))) #average value
         feats.append(float(np.std(ch)))#spread
         feats.append(float(np.min(ch)))#lowest point
         feats.append(float(np.max(ch)))#highest point

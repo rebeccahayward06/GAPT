@@ -1,10 +1,10 @@
-import arganparse
+import argparse
 import os
 import time 
 import joblib
 import numpy as np 
 import pandas as pd 
-from features import extract_featues, FEATURE_COLS, RAW_COLS, WINDOW_SIZE, STEP_SIZE
+from Features import extract_features, FEATURE_COLS, RAW_COLS, WINDOW_SIZE, STEP_SIZE
 
 DATA_PATH="cleaned_labeled_dataset.csv"
 MODEL_PATH="best_model.joblib"
@@ -149,7 +149,7 @@ def run_osc_server():
                 m["particle_speed"],
                 m["line_curvature"],
                 m["blur_amount"],
-                m["color shift"],
+                m["color_shift"],
             ])
 
             print(
@@ -175,7 +175,6 @@ if __name__=="__main__":
         run_osc_server()
     else:
         run_demo()
-
 
 
 

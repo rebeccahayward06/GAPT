@@ -11,7 +11,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline 
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.svm import SVC
-import features import build_dataset, FEATURE_COLS, RAW_COLS
+from Features import build_dataset, FEATURE_COLS, RAW_COLS
 
 warnings.filterwarnings("ignore")
 
@@ -24,7 +24,7 @@ ENCODER_PATH="label_encoder.joblib"
 def load_data():
     if not os.path.exists(DATA_PATH):
         raise FileNotFoundError(
-            f"'{DATA_PATH}"'not found.\n"
+            f"'{DATA_PATH}'not found.\n"
             "Run PythonParser.py first."
         )
     
@@ -73,7 +73,7 @@ def get_models():
         "MLP":Pipeline([
             ("scaler",StandardScaler()),
             ("clf",MLPClassifier(
-                hidden_layer_sizes=(128,64)
+                hidden_layer_sizes=(128,64),
                 activation="relu",
                 max_iter=500,
                 early_stopping=True,
@@ -147,7 +147,7 @@ def evaluate(pipe,le,X,y,cv_results,best_name):
     axes[1].set_ylabel("Accuracy")
     axes[1].set_title("cross-validation accuracy-model comparison",fontsize=12)
 
-    for i, (m,s) in enumerate(zop(means,stds)):
+    for i, (m,s) in enumerate(zip(means,stds)):
         axes[1].text(i,m+s+0.015, f"{m:.3f}", ha='center', fontsize=10)
 
     plt.tight_layout()
@@ -163,7 +163,7 @@ def evaluate(pipe,le,X,y,cv_results,best_name):
         idx=np.argsort(imps)[::-1][:top_n]
 
         fig2, ax2=plt.subplots(figsize=(12,5))
-        ax2.bar(range(top_n))
+        ax2.bar(range(top_n), imps[idx])
         ax2.set_xticklabels([f"f{i}" for i in idx], rotation=45, fontsize=8)
         ax2.set_xlabel("Feature index")
         ax2.set_ylabel("Importance score")
