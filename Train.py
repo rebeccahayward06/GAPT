@@ -15,7 +15,7 @@ from Features import build_dataset, FEATURE_COLS, RAW_COLS
 
 warnings.filterwarnings("ignore")
 
-DATA_PATH="Cleaned_Labeled_Dataset.csv"
+DATA_PATH="Cleaned_Labeled_Dataset_Final.csv"
 MODEL_PATH="best_model.joblib"
 ENCODER_PATH="label_encoder.joblib"
 

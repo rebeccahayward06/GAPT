@@ -5,9 +5,10 @@ from sklearn.preprocessing import StandardScaler
 # 1. Map the files to labels chronologically
 files = sorted(glob.glob("**\\DOT1_*.csv",recursive=True))
 labels = [
-    "circle_big", "circle_small", "hip_rotation_both", "hip_thrust", 
-    "openclose_big", "openclose_small", "punching_fast", 
-    "punching_slow", "side_to_side", "updown_big", "updown_small", "whipping"
+    "circle_big_left","circle_big_right", "circle_small_left", "circle_small_right","hip_rotation_both", "hip_thrust", 
+    "openclose_big_left","openclose_big_right", "openclose_small_left","openclose_small_right", "punching_fast_left", 
+    "punching_fast_right","punching_slow_left","punching_slow_right", "side_to_side", "updown_big_left","updown_big_right",
+    "updown_small_left", "updown_small_right","whipping"
 ]
 
 all_data = []
@@ -50,5 +51,5 @@ for col in feature_cols:
     master_df[f'{col}_Smoothed'] = master_df.groupby('Label')[col].transform(lambda x: x.rolling(window=5, min_periods=1).mean())
 
 # Save the unified dataset
-master_df.to_csv("Cleaned_Labeled_Dataset.csv", index=False)
+master_df.to_csv("Cleaned_Labeled_Dataset_Final.csv", index=False)
 print("Pipeline Complete! Master dataset shape:", master_df.shape)

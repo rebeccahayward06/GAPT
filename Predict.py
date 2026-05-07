@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd 
 from Features import extract_features, FEATURE_COLS, RAW_COLS, WINDOW_SIZE, STEP_SIZE
 
-DATA_PATH="cleaned_labeled_dataset.csv"
+DATA_PATH="Cleaned_Labeled_Dataset_Final.csv"
 MODEL_PATH="best_model.joblib"
 ENCODER_PATH="label_encoder.joblib"
 
