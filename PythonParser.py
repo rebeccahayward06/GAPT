@@ -3,7 +3,7 @@ import glob
 from sklearn.preprocessing import StandardScaler
 
 # 1. Map the files to labels chronologically
-files = sorted(glob.glob("**\\DOT1_*.csv",recursive=True))
+files = sorted(glob.glob("**\\DOT1*.csv",recursive=True))
 labels = [
     "circle_big_left","circle_big_right", "circle_small_left", "circle_small_right","hip_rotation_both", "hip_thrust", 
     "openclose_big_left","openclose_big_right", "openclose_small_left","openclose_small_right", "punching_fast_left", 
