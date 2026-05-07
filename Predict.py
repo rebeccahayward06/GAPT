@@ -10,7 +10,7 @@ DATA_PATH="Cleaned_Labeled_Dataset_Final.csv"
 MODEL_PATH="best_model.joblib"
 ENCODER_PATH="label_encoder.joblib"
 
-UNITY_IP= "127.0.0.1" #localhost placeholder for now- need to add julias one 
+UNITY_IP= "192.168.68.100" #julia's local ip address, change if needed to run on another machine
 UNITY_PORT=9000
 OSC_ADDR="/motionsketch/prediction"
 
