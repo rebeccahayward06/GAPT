@@ -1,0 +1,6 @@
+bleak
+python-osc
+joblib
+scikit-learn
+pandas
+numpy
