@@ -1,20 +1,18 @@
+import os 
 import pandas as pd
 import glob
 from sklearn.preprocessing import StandardScaler
 
 # 1. Map the files to labels chronologically
-files = sorted(glob.glob("**\\DOT1*.csv",recursive=True))
-labels = [
-    "circle_big_left","circle_big_right", "circle_small_left", "circle_small_right","hip_rotation_both", "hip_thrust", 
-    "openclose_big_left","openclose_big_right", "openclose_small_left","openclose_small_right", "punching_fast_left", 
-    "punching_fast_right","punching_slow_left","punching_slow_right", "side_to_side", "updown_big_left","updown_big_right",
-    "updown_small_left", "updown_small_right","whipping"
-]
+files = sorted(glob.glob("GAPTcsv\\**\\DOT1*.csv",recursive=True))
 
 all_data = []
 
 # 2. Loop through and create labeled dataset
-for f, l in zip(files, labels):
+for f in files:
+    #extracting label from the parent folder name
+    l=os.path.basename(os.path.dirname(f))
+
     # Find where the actual data starts (Xsens DOT headers are 10-12 lines long)
     with open(f, 'r', encoding='utf-8') as file:
         lines = file.readlines()
