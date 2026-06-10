@@ -131,9 +131,11 @@ def evaluate(pipe,le,X,y,cv_results,best_name):
     fig.suptitle("MotionSketch-movement classifier evaluation", fontsize=14)
 
     cm=confusion_matrix(y, y_pred)
-    ConfusionMatrixDisplay(cm, display_labels=le.classes_).plot(
-        ax=axes[0], xticks_rotation=45, colorbar=False, cmap="Blues"
+    disp = ConfusionMatrixDisplay(cm, display_labels=le.classes_).plot(
+        ax=axes[0], xticks_rotation=90, colorbar=False, cmap="Blues"
     )
+    axes[0].set_xticklabels(axes[0].get_xticklabels(), fontsize=7)
+    axes[0].set_yticklabels(axes[0].get_yticklabels(), fontsize=7)
     axes[0].set_title(f"Confusion matrix- {best_name}", fontsize=12)
 
     names=list(cv_results.keys())
