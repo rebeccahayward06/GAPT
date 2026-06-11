@@ -36,17 +36,20 @@ class MotionSketchLivePipeline:
         print(f"[Engine] Ready! Target labels: {list(self.le.classes_)}")
 
     def parse_payload(self, data):
-        """Parse BLE payload — handles both 20 and 40 byte packets"""
+        """Inspect raw medium packet structure"""
         try:
+            print(f"\n[RAW] len={len(data)} hex={data.hex()}")
             if len(data) >= 40:
-                # Full 40-byte packet: timestamp(4) + Euler(12) + FreeAcc(12) + Gyr(12)
                 all_values = np.array(struct.unpack('<fffffffff', data[4:40]))
-                return all_values[3:9]  # FreeAcc X/Y/Z, Gyr X/Y/Z
+                return all_values[3:9]
             elif len(data) >= 20:
-                # Medium 20-byte packet with Custom Mode 1
-                all_values = np.array(struct.unpack('<fffffffff', data[4:40]))
-                return all_values[3:9]  # FreeAcc X/Y/Z, Gyr X/Y/Z
-        except Exception:
+                # Print what we can actually unpack from 20 bytes
+                # 20 bytes - 4 timestamp = 16 bytes = 4 floats
+                values = np.array(struct.unpack('<ffff', data[4:20]))
+                print(f"[RAW] 4 floats from medium packet: {np.round(values, 4)}")
+                return None  # don't classify yet, just inspect
+        except Exception as e:
+            print(f"[PARSE ERROR] {e}")
             return None
         return None
 
@@ -60,11 +63,6 @@ class MotionSketchLivePipeline:
         raw_signal = self.parse_payload(data)
         if raw_signal is None:
             return
-
-        # TEMPORARY DEBUG
-        if self.total_packets_received % 60 == 0:
-            print(f"\n[DEBUG] raw_signal: {np.round(raw_signal, 4)}")
-            print(f"[DEBUG] data length: {len(data)}, hex: {data.hex()}")
 
         self.smooth_buffer.append(raw_signal)
         smoothed_frame = np.mean(self.smooth_buffer, axis=0)
