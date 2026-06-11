@@ -7,7 +7,6 @@ import time
 from bleak import BleakClient
 from pythonosc import udp_client
 
-# Direct feature extraction integration
 from Features import extract_features, WINDOW_SIZE, STEP_SIZE
 
 # ==============================================================================
@@ -18,15 +17,14 @@ UNITY_IP = "127.0.0.1"
 UNITY_PORT = 9000
 OSC_PATH = "/motionsketch/prediction"
 
-# Xsens DOT 128-bit BLE UUID definitions
 CONTROL_UUID     = "15172001-4947-11e9-8646-d663bd873d93"
 UUID_ORIENTATION = "15172002-4947-11e9-8646-d663bd873d93"
 UUID_MEDIUM      = "15172003-4947-11e9-8646-d663bd873d93"
 UUID_COMPLETE    = "15172004-4947-11e9-8646-d663bd873d93"
 
-# Student A Calibration Space Vectors
-MEANS = np.array([-2.156896, 10.437826, -11.540046, -0.022744, 0.111932, -0.413033, -7.426878, 0.691863, -5.463504])
-STDS = np.array([29.179614, 35.469717, 130.952588, 3.977307, 3.735324, 2.847601, 66.662668, 87.500496, 80.985148])
+# FreeAcc X/Y/Z and Gyr X/Y/Z only — Euler removed
+MEANS = np.array([-0.022744, 0.111932, -0.413033, -7.426878, 0.691863, -5.463504])
+STDS  = np.array([3.977307, 3.735324, 2.847601, 66.662668, 87.500496, 80.985148])
 
 class MotionSketchLivePipeline:
     def __init__(self):
@@ -42,15 +40,16 @@ class MotionSketchLivePipeline:
         print(f"[Engine] Ready! Target labels: {list(self.le.classes_)}")
 
     def parse_payload(self, data):
-        """Robust multi-payload parser handling both Complete (40B) and Medium (20B+) streams"""
+        """Parse BLE payload and return only FreeAcc + Gyr (6 values, no Euler)"""
         try:
             if len(data) >= 40:
-                # 9-column Complete format (Euler + Accel + Gyro)
-                return np.array(struct.unpack('<fffffffff', data[4:40]))
+                # Unpack all 9 values then slice off Euler (first 3)
+                all_values = np.array(struct.unpack('<fffffffff', data[4:40]))
+                return all_values[3:9]  # FreeAcc X/Y/Z, Gyr X/Y/Z
             elif len(data) >= 16:
-                # 3-column Orientation format (Padded with zeros for safety)
-                unpacked = struct.unpack('<ffff', data[4:20])
-                return np.array([unpacked[1], unpacked[2], unpacked[3], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+                # Orientation-only packet — no FreeAcc or Gyr available
+                # Return zeros so the buffer stays consistent
+                return np.zeros(6)
         except Exception:
             return None
         return None
@@ -59,7 +58,6 @@ class MotionSketchLivePipeline:
         start_time = time.perf_counter()
         self.total_packets_received += 1
         
-        # Clean, single-line ticker so you know data is actively moving
         if self.total_packets_received % 30 == 0:
             print(f"[Live Sync] Packets Processed: {self.total_packets_received}...", end="\r")
         
@@ -67,6 +65,7 @@ class MotionSketchLivePipeline:
         if raw_signal is None:
             return
 
+        # Scale using FreeAcc + Gyr means and stds only
         scaled_signal = (raw_signal - MEANS) / STDS
         self.smooth_buffer.append(scaled_signal)
         smoothed_frame = np.mean(self.smooth_buffer, axis=0)
@@ -77,7 +76,7 @@ class MotionSketchLivePipeline:
             self.run_inference(start_time)
 
     def run_inference(self, start_time):
-        current_window = np.array(self.window_buffer)
+        current_window = np.array(self.window_buffer)  # shape: (60, 6)
         features = extract_features(current_window).reshape(1, -1)
         
         probabilities = self.model.predict_proba(features)[0]
@@ -86,9 +85,10 @@ class MotionSketchLivePipeline:
         label = self.le.inverse_transform([predicted_idx])[0]
         
         latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-        acc_magnitude = np.mean(np.linalg.norm(current_window[:, 3:6], axis=1))
+
+        # acc is now columns 0:3 (was 3:6 when Euler was included)
+        acc_magnitude = np.mean(np.linalg.norm(current_window[:, 0:3], axis=1))
         
-        # 🚨 OPEN THRESHOLD FILTER: Let us see exactly what numbers are calculating live
         if confidence > 0.10:  
             print(f"\n >> [{label:<22}] Confidence: {confidence:.2%} | Latency: {latency_ms}ms")
             self.osc.send_message(OSC_PATH, [label, float(confidence), float(acc_magnitude)])
@@ -104,7 +104,6 @@ async def main():
                 
                 available_uuids = [char.uuid for service in client.services for char in service.characteristics]
                 
-                # Sequence triggers to safely fire up streaming across old/new firmware revisions
                 start_commands = [b'\x01\x01\x01', b'\x01\x01\x02', b'\x01\x01\x10']
                 for cmd in start_commands:
                     try:
@@ -113,7 +112,6 @@ async def main():
                     except Exception:
                         pass
 
-                # Multi-channel failover binding
                 target_channels = [UUID_ORIENTATION, UUID_MEDIUM, UUID_COMPLETE]
                 bound_count = 0
                 
