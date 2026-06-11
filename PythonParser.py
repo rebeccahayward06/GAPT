@@ -1,7 +1,6 @@
 import os 
 import pandas as pd
 import glob
-from sklearn.preprocessing import StandardScaler
 
 # 1. Map the files to labels chronologically
 files = sorted(glob.glob("GAPTcsv\\**\\DOT1*.csv",recursive=True))
@@ -36,11 +35,6 @@ master_df = pd.concat(all_data, ignore_index=True)
 feature_cols = ['Euler_X', 'Euler_Y', 'Euler_Z', 
                 'FreeAcc_X', 'FreeAcc_Y', 'FreeAcc_Z', 
                 'Gyr_X', 'Gyr_Y', 'Gyr_Z']
-
-# 3. Normalisation (Mean = 0, Standard Deviation = 1)
-# ML Models (Random Forests/SVMs) perform much better with scaled data
-scaler = StandardScaler()
-master_df[feature_cols] = scaler.fit_transform(master_df[feature_cols])
 
 # 4. Noise Filtering (Smoothing)
 # Using a 5-step rolling average window to remove tiny sensor jitters. 

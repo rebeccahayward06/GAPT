@@ -35,6 +35,9 @@ class MotionSketchLivePipeline:
         self.total_packets_received = 0
         print(f"[Engine] Ready! Target labels: {list(self.le.classes_)}")
 
+        self.prediction_buffer = collections.deque(maxlen=5)
+        self.last_sent_label = None
+
     def parse_payload(self, data):
         """
         Custom Mode 1 — 40 byte packet layout:
@@ -85,16 +88,12 @@ class MotionSketchLivePipeline:
     def run_inference(self, start_time):
         current_window = np.array(self.window_buffer)
 
-        # NaN guard — skip window if any value is invalid
         if np.any(np.isnan(current_window)) or np.any(np.isinf(current_window)):
-            print("[WARN] NaN/Inf in window — skipping.")
             return
 
         features = extract_features(current_window).reshape(1, -1)
 
-        # Second NaN guard on features
         if np.any(np.isnan(features)) or np.any(np.isinf(features)):
-            print("[WARN] NaN/Inf in features — skipping.")
             return
 
         probabilities = self.model.predict_proba(features)[0]
@@ -102,11 +101,23 @@ class MotionSketchLivePipeline:
         confidence    = probabilities[predicted_idx]
         label         = self.le.inverse_transform([predicted_idx])[0]
         latency_ms    = round((time.perf_counter() - start_time) * 1000, 2)
-        acc_magnitude = np.mean(np.linalg.norm(current_window[:, 0:3], axis=1))
-        
-        if confidence > 0.10:
-            print(f"\n >> [{label:<22}] Confidence: {confidence:.2%} | Latency: {latency_ms}ms")
-            self.osc.send_message(OSC_PATH, [label, float(confidence), float(acc_magnitude)])
+
+        # Only accept confident predictions
+        if confidence < 0.50:
+            return
+
+        # Add to majority vote buffer
+        self.prediction_buffer.append(label)
+
+        # Only fire if 3 out of last 5 predictions agree
+        if len(self.prediction_buffer) == 5:
+            from collections import Counter
+            most_common, count = Counter(self.prediction_buffer).most_common(1)[0]
+            if count >= 3 and most_common != self.last_sent_label:
+                acc_magnitude = np.mean(np.linalg.norm(current_window[:, 0:3], axis=1))
+                print(f"\n >> [{most_common:<22}] Confidence: {confidence:.2%} | Latency: {latency_ms}ms")
+                self.osc.send_message(OSC_PATH, [most_common, float(confidence), float(acc_magnitude)])
+                self.last_sent_label = most_common
 
 async def main():
     pipeline = MotionSketchLivePipeline()
