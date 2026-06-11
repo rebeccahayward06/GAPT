@@ -36,18 +36,16 @@ class MotionSketchLivePipeline:
         print(f"[Engine] Ready! Target labels: {list(self.le.classes_)}")
 
     def parse_payload(self, data):
-        """Inspect raw medium packet structure"""
         try:
-            print(f"\n[RAW] len={len(data)} hex={data.hex()}")
             if len(data) >= 40:
-                all_values = np.array(struct.unpack('<fffffffff', data[4:40]))
-                return all_values[3:9]
-            elif len(data) >= 20:
-                # Print what we can actually unpack from 20 bytes
-                # 20 bytes - 4 timestamp = 16 bytes = 4 floats
-                values = np.array(struct.unpack('<ffff', data[4:20]))
-                print(f"[RAW] 4 floats from medium packet: {np.round(values, 4)}")
-                return None  # don't classify yet, just inspect
+                # Euler: 3 × int16 at bytes 4-9, scaled by 0.01 degrees
+                euler = np.array(struct.unpack('<hhh', data[4:10])) * 0.01
+                # FreeAcc: 3 × float32 at bytes 16-28
+                free_acc = np.array(struct.unpack('<fff', data[16:28]))
+                # Gyr: 3 × float32 at bytes 28-40
+                gyr = np.array(struct.unpack('<fff', data[28:40]))
+                # Return FreeAcc + Gyr only (6 values, no Euler)
+                return np.concatenate([free_acc, gyr])
         except Exception as e:
             print(f"[PARSE ERROR] {e}")
             return None
