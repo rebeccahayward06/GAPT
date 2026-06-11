@@ -60,6 +60,11 @@ class MotionSketchLivePipeline:
         raw_signal = self.parse_payload(data)
         if raw_signal is None:
             return
+        
+        #TEMPORARY
+        if self.total_packets_received % 60 == 0:
+            print(f"\n[DEBUG] raw_signal: {np.round(raw_signal, 4)}")
+            print(f"[DEBUG] data length: {len(data)}, hex: {data.hex()}")
 
         # Scale using FreeAcc + Gyr means and stds only
         self.smooth_buffer.append(raw_signal)
