@@ -5,9 +5,7 @@ WINDOW_SIZE=60
 STEP_SIZE=30 
 
 FEATURE_COLS=[
-    'Euler_X_Smoothed',#orientation of sesnor (roll)
-    'Euler_Y_Smoothed',#orientation of sensor (pitch)
-    'Euler_Z_Smoothed',#orientation of sensor(yaw)
+
     'FreeAcc_X_Smoothed',#linear acc X,Y,Z(gravity removed)
     'FreeAcc_Y_Smoothed',
     'FreeAcc_Z_Smoothed',
@@ -37,12 +35,12 @@ def extract_features(window: np.ndarray) ->np.ndarray:#loops 9 times ( once per 
     feats=feats+list(np.mean(diffs,axis=0))
 
     #3D magnitude
-    acc=window[:,3:6]
+    acc=window[:,0:3]
     acc_mag=np.linalg.norm(acc,axis=1)
     feats.append(float(np.mean(acc_mag)))
     feats.append(float(np.std(acc_mag)))
 
-    gyr=window[:,6:9]
+    gyr=window[:,3:6]
     gyr_mag=np.linalg.norm(gyr,axis=1)
     feats.append(float(np.mean(gyr_mag)))
     feats.append(float(np.std(gyr_mag)))
