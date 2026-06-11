@@ -104,7 +104,7 @@ async def main():
                 
                 available_uuids = [char.uuid for service in client.services for char in service.characteristics]
                 
-                start_commands = [b'\x01\x01\x06']
+                start_commands = [b'\x01\x01\x01', b'\x01\x06\x01']  # Start streaming commands for orientation and medium data
                 for cmd in start_commands:
                     try:
                         await client.write_gatt_char(CONTROL_UUID, cmd, response=True)
@@ -112,7 +112,7 @@ async def main():
                     except Exception:
                         pass
 
-                target_channels = [UUID_ORIENTATION, UUID_MEDIUM, UUID_COMPLETE]
+                target_channels = [UUID_COMPLETE]
                 bound_count = 0
                 
                 for uuid in target_channels:
