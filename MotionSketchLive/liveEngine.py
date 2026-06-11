@@ -22,10 +22,6 @@ UUID_ORIENTATION = "15172002-4947-11e9-8646-d663bd873d93"
 UUID_MEDIUM      = "15172003-4947-11e9-8646-d663bd873d93"
 UUID_COMPLETE    = "15172004-4947-11e9-8646-d663bd873d93"
 
-# FreeAcc X/Y/Z and Gyr X/Y/Z only — Euler removed
-MEANS = np.array([-0.022744, 0.111932, -0.413033, -7.426878, 0.691863, -5.463504])
-STDS  = np.array([3.977307, 3.735324, 2.847601, 66.662668, 87.500496, 80.985148])
-
 class MotionSketchLivePipeline:
     def __init__(self):
         print("[Engine] Loading model workspace...")
@@ -66,8 +62,7 @@ class MotionSketchLivePipeline:
             return
 
         # Scale using FreeAcc + Gyr means and stds only
-        scaled_signal = (raw_signal - MEANS) / STDS
-        self.smooth_buffer.append(scaled_signal)
+        self.smooth_buffer.append(raw_signal)
         smoothed_frame = np.mean(self.smooth_buffer, axis=0)
         self.window_buffer.append(smoothed_frame)
         
