@@ -36,16 +36,16 @@ class MotionSketchLivePipeline:
         print(f"[Engine] Ready! Target labels: {list(self.le.classes_)}")
 
     def parse_payload(self, data):
-        """Parse BLE payload and return only FreeAcc + Gyr (6 values, no Euler)"""
+        """Parse BLE payload — handles both 20 and 40 byte packets"""
         try:
             if len(data) >= 40:
-                # Unpack all 9 values then slice off Euler (first 3)
+                # Full 40-byte packet: timestamp(4) + Euler(12) + FreeAcc(12) + Gyr(12)
                 all_values = np.array(struct.unpack('<fffffffff', data[4:40]))
                 return all_values[3:9]  # FreeAcc X/Y/Z, Gyr X/Y/Z
-            elif len(data) >= 16:
-                # Orientation-only packet — no FreeAcc or Gyr available
-                # Return zeros so the buffer stays consistent
-                return np.zeros(6)
+            elif len(data) >= 20:
+                # Medium 20-byte packet with Custom Mode 1
+                all_values = np.array(struct.unpack('<fffffffff', data[4:40]))
+                return all_values[3:9]  # FreeAcc X/Y/Z, Gyr X/Y/Z
         except Exception:
             return None
         return None
@@ -99,9 +99,9 @@ async def main():
             if client.is_connected:
                 print("[BLE] Bluetooth connection secure.")
 
-                # Step 1 — enable notification FIRST before any commands
-                await client.start_notify(UUID_COMPLETE, pipeline.ble_notification_callback)
-                print("[BLE] Notification enabled on UUID_COMPLETE.")
+                # Step 1 — enable notification FIRST on UUID_MEDIUM
+                await client.start_notify(UUID_MEDIUM, pipeline.ble_notification_callback)
+                print("[BLE] Notification enabled on UUID_MEDIUM.")
                 await asyncio.sleep(0.5)
 
                 # Step 2 — set payload mode to Custom Mode 1
