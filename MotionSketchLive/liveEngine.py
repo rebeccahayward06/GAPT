@@ -104,7 +104,7 @@ async def main():
                 
                 available_uuids = [char.uuid for service in client.services for char in service.characteristics]
                 
-                start_commands = [b'\x01\x01\x01', b'\x01\x01\x02', b'\x01\x01\x10']
+                start_commands = [b'\x01\x01\x06']
                 for cmd in start_commands:
                     try:
                         await client.write_gatt_char(CONTROL_UUID, cmd, response=True)
