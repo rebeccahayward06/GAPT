@@ -60,13 +60,12 @@ class MotionSketchLivePipeline:
         raw_signal = self.parse_payload(data)
         if raw_signal is None:
             return
-        
-        #TEMPORARY
+
+        # TEMPORARY DEBUG
         if self.total_packets_received % 60 == 0:
             print(f"\n[DEBUG] raw_signal: {np.round(raw_signal, 4)}")
             print(f"[DEBUG] data length: {len(data)}, hex: {data.hex()}")
 
-        # Scale using FreeAcc + Gyr means and stds only
         self.smooth_buffer.append(raw_signal)
         smoothed_frame = np.mean(self.smooth_buffer, axis=0)
         self.window_buffer.append(smoothed_frame)
@@ -85,11 +84,9 @@ class MotionSketchLivePipeline:
         label = self.le.inverse_transform([predicted_idx])[0]
         
         latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-
-        # acc is now columns 0:3 (was 3:6 when Euler was included)
         acc_magnitude = np.mean(np.linalg.norm(current_window[:, 0:3], axis=1))
         
-        if confidence > 0.10:  
+        if confidence > 0.10:
             print(f"\n >> [{label:<22}] Confidence: {confidence:.2%} | Latency: {latency_ms}ms")
             self.osc.send_message(OSC_PATH, [label, float(confidence), float(acc_magnitude)])
 
@@ -100,30 +97,31 @@ async def main():
     try:
         async with BleakClient(SENSOR_ADDRESS) as client:
             if client.is_connected:
-                print("[BLE] Bluetooth connection secure. Mapping architecture paths...")
-                
-                available_uuids = [char.uuid for service in client.services for char in service.characteristics]
-                
-                start_commands = [b'\x01\x01\x01', b'\x01\x06\x01']  # Start streaming commands for orientation and medium data
-                for cmd in start_commands:
-                    try:
-                        await client.write_gatt_char(CONTROL_UUID, cmd, response=True)
-                        await asyncio.sleep(0.1)
-                    except Exception:
-                        pass
+                print("[BLE] Bluetooth connection secure.")
 
-                target_channels = [UUID_COMPLETE]
-                bound_count = 0
-                
-                for uuid in target_channels:
-                    if uuid in available_uuids:
-                        try:
-                            await client.start_notify(uuid, pipeline.ble_notification_callback)
-                            bound_count += 1
-                        except Exception:
-                            pass
-                
-                print(f"[SYSTEM ONLINE] Bound to {bound_count} sensor data channels. Wave the device!")
+                # Step 1 — enable notification FIRST before any commands
+                await client.start_notify(UUID_COMPLETE, pipeline.ble_notification_callback)
+                print("[BLE] Notification enabled on UUID_COMPLETE.")
+                await asyncio.sleep(0.5)
+
+                # Step 2 — set payload mode to Custom Mode 1
+                # (Euler + FreeAcc + Gyr, 40 bytes)
+                await client.write_gatt_char(
+                    CONTROL_UUID,
+                    bytearray([0x01, 0x10, 0x01]),
+                    response=True
+                )
+                print("[BLE] Payload mode set to Custom Mode 1.")
+                await asyncio.sleep(0.3)
+
+                # Step 3 — send start streaming command
+                await client.write_gatt_char(
+                    CONTROL_UUID,
+                    bytearray([0x01, 0x01, 0x01]),
+                    response=True
+                )
+                print("[SYSTEM ONLINE] Streaming started. Wave the device!")
+
                 while True:
                     await asyncio.sleep(1.0)
             else:
