@@ -36,16 +36,24 @@ class MotionSketchLivePipeline:
         print(f"[Engine] Ready! Target labels: {list(self.le.classes_)}")
 
     def parse_payload(self, data):
+        """
+        Custom Mode 1 — 40 byte packet layout:
+          bytes  0- 3 : timestamp (uint32)
+          bytes  4- 9 : Euler X, Y, Z (3 x int16, scaled x0.01)
+          bytes 10-11 : padding
+          bytes 12-23 : FreeAcc X, Y, Z (3 x float32)
+          bytes 24-35 : Gyr X, Y, Z (3 x float32)
+          bytes 36-39 : status/padding
+        """
         try:
-            if len(data) >= 40:
-                # Euler: 3 × int16 at bytes 4-9, scaled by 0.01 degrees
-                euler = np.array(struct.unpack('<hhh', data[4:10])) * 0.01
-                # FreeAcc: 3 × float32 at bytes 16-28
-                free_acc = np.array(struct.unpack('<fff', data[16:28]))
-                # Gyr: 3 × float32 at bytes 28-40
-                gyr = np.array(struct.unpack('<fff', data[28:40]))
-                # Return FreeAcc + Gyr only (6 values, no Euler)
-                return np.concatenate([free_acc, gyr])
+            if len(data) >= 36:
+                free_acc = np.array(struct.unpack('<fff', data[12:24]))
+                gyr      = np.array(struct.unpack('<fff', data[24:36]))
+                result   = np.concatenate([free_acc, gyr])
+                # Reject if any value is NaN or unreasonably large
+                if np.any(np.isnan(result)) or np.any(np.abs(result) > 1e6):
+                    return None
+                return result
         except Exception as e:
             print(f"[PARSE ERROR] {e}")
             return None
@@ -62,6 +70,10 @@ class MotionSketchLivePipeline:
         if raw_signal is None:
             return
 
+        # DEBUG — remove once working
+        if self.total_packets_received % 60 == 0:
+            print(f"\n[DEBUG] raw_signal: {np.round(raw_signal, 4)}")
+
         self.smooth_buffer.append(raw_signal)
         smoothed_frame = np.mean(self.smooth_buffer, axis=0)
         self.window_buffer.append(smoothed_frame)
@@ -71,15 +83,25 @@ class MotionSketchLivePipeline:
             self.run_inference(start_time)
 
     def run_inference(self, start_time):
-        current_window = np.array(self.window_buffer)  # shape: (60, 6)
+        current_window = np.array(self.window_buffer)
+
+        # NaN guard — skip window if any value is invalid
+        if np.any(np.isnan(current_window)) or np.any(np.isinf(current_window)):
+            print("[WARN] NaN/Inf in window — skipping.")
+            return
+
         features = extract_features(current_window).reshape(1, -1)
-        
+
+        # Second NaN guard on features
+        if np.any(np.isnan(features)) or np.any(np.isinf(features)):
+            print("[WARN] NaN/Inf in features — skipping.")
+            return
+
         probabilities = self.model.predict_proba(features)[0]
         predicted_idx = np.argmax(probabilities)
-        confidence = probabilities[predicted_idx]
-        label = self.le.inverse_transform([predicted_idx])[0]
-        
-        latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        confidence    = probabilities[predicted_idx]
+        label         = self.le.inverse_transform([predicted_idx])[0]
+        latency_ms    = round((time.perf_counter() - start_time) * 1000, 2)
         acc_magnitude = np.mean(np.linalg.norm(current_window[:, 0:3], axis=1))
         
         if confidence > 0.10:
@@ -95,13 +117,12 @@ async def main():
             if client.is_connected:
                 print("[BLE] Bluetooth connection secure.")
 
-                # Step 1 — enable notification FIRST on UUID_MEDIUM
+                # Step 1 — enable notification FIRST
                 await client.start_notify(UUID_MEDIUM, pipeline.ble_notification_callback)
                 print("[BLE] Notification enabled on UUID_MEDIUM.")
                 await asyncio.sleep(0.5)
 
                 # Step 2 — set payload mode to Custom Mode 1
-                # (Euler + FreeAcc + Gyr, 40 bytes)
                 await client.write_gatt_char(
                     CONTROL_UUID,
                     bytearray([0x01, 0x10, 0x01]),
@@ -110,7 +131,7 @@ async def main():
                 print("[BLE] Payload mode set to Custom Mode 1.")
                 await asyncio.sleep(0.3)
 
-                # Step 3 — send start streaming command
+                # Step 3 — start streaming
                 await client.write_gatt_char(
                     CONTROL_UUID,
                     bytearray([0x01, 0x01, 0x01]),
