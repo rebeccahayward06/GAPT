@@ -62,20 +62,24 @@ def extract_features(window: np.ndarray) ->np.ndarray:#loops 9 times ( once per 
 
 
 #sliding window builder 
-def build_dataset(df,cols):
-    X_list, y_list=[],[]
+def build_dataset(df, cols):
+    X_list, y_list, g_list = [], [], []
 
-    for label in df['Label'].unique():
-        signal=df[df['Label']==label][cols].values
-        for start in range(0,len(signal)-WINDOW_SIZE+1,STEP_SIZE):
-            window =signal[start:start+WINDOW_SIZE]
-            if window.shape[0]==WINDOW_SIZE:
+    for source in df['Source'].unique():
+        sub = df[df['Source'] == source]
+        label = sub['Label'].iloc[0]
+        signal = sub[cols].values
+        for start in range(0, len(signal) - WINDOW_SIZE + 1, STEP_SIZE):
+            window = signal[start:start + WINDOW_SIZE]
+            if window.shape[0] == WINDOW_SIZE:
                 X_list.append(extract_features(window))
                 y_list.append(label)
-            
-    X=np.array(X_list)
-    y=np.array(y_list)
+                g_list.append(source)
 
-    print(f"[Features] {X.shape[0]} windows built | {X.shape[1]} features each")
-    return X,y 
+    X = np.array(X_list)
+    y = np.array(y_list)
+    groups = np.array(g_list)
+
+    print(f"[Features] {X.shape[0]} windows | {X.shape[1]} features | {len(np.unique(groups))} recordings")
+    return X, y, groups
 
