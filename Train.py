@@ -181,6 +181,10 @@ def evaluate(pipe,le,X,y,groups,cv_results,best_name):
 def strip_side(label):
     return label.replace('_left', '').replace('_right', '')
 
+# stripping size from labels
+def strip_size(label):
+        return label.replace('_big', '').replace('_small', '') # continuous; speed stays categorical
+
 #main
 
 if __name__=="__main__":
