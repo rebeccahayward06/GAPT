@@ -58,6 +58,12 @@ def extract_features(window: np.ndarray) ->np.ndarray:#loops 9 times ( once per 
     feats.append(zero_crossings/WINDOW_SIZE)
     feats.append(float(np.mean(np.abs(gyr_dominant))))
 
+    # sustained-rotation signature: |integrated gyro|.
+    # Large for continuous rotation
+    net_rot = np.abs(np.sum(gyr, axis=0)) / WINDOW_SIZE
+    feats.extend([float(v) for v in net_rot])
+    feats.append(float(np.linalg.norm(net_rot)))
+
     return np.array(feats, dtype=np.float32)
 
 

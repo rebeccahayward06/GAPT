@@ -177,14 +177,6 @@ def evaluate(pipe,le,X,y,groups,cv_results,best_name):
         print("[Eval] saved feature_importances.png")
         plt.show()
 
-# stripping left and right from labels
-def strip_side(label):
-    return label.replace('_left', '').replace('_right', '')
-
-# stripping size from labels
-def strip_size(label):
-        return label.replace('_big', '').replace('_small', '') # continuous; speed stays categorical
-
 #main
 
 if __name__=="__main__":
@@ -198,7 +190,7 @@ if __name__=="__main__":
     #building feature matrix from sliding windows 
     X, y_str, groups = build_dataset(df, cols)
 
-    y_str = np.array([strip_side(l) for l in y_str])   # merge L/R — side comes from the sensor live
+    # y_str = np.array([strip_side(l) for l in y_str])   # merge L/R — side comes from the sensor live
 
     #encoding string labels to integers
     le= LabelEncoder()
