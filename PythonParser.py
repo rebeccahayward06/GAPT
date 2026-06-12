@@ -25,6 +25,7 @@ for f in files:
     
     # Add the target classification label
     df['Label'] = l
+    df['Source'] = os.path.basename(f)   # which recording this row came from
     all_data.append(df)
 
 # Concatenate into one master dataset

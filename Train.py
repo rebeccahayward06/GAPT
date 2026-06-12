@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedGroupKFold, cross_val_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline 
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -85,15 +85,16 @@ def get_models():
 
 
 #cross-validation 
-def cross_validate(models, X,y):
-    cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+def cross_validate(models, X, y, groups):
+    cv = StratifiedGroupKFold(n_splits=4, shuffle=True, random_state=42)
 
-    print("\n---------Cross-validation results(5-fold)---------------")
-    cv_results={}
+    print("\n---------Cross-validation results (grouped by recording)---------------")
+    cv_results = {}
 
-    for name,pipe in models.items():
-        scores=cross_val_score(pipe,X,y,cv=cv, scoring="accuracy", n_jobs=-1)
-        cv_results[name]=scores
+    for name, pipe in models.items():
+        scores = cross_val_score(pipe, X, y, groups=groups, cv=cv,
+                                 scoring="accuracy", n_jobs=-1)
+        cv_results[name] = scores
         print(f"{name:<20} mean={scores.mean():.4f} std= +-{scores.std():.4f}")
 
     return cv_results
@@ -187,7 +188,7 @@ if __name__=="__main__":
     df,cols=load_data()
 
     #building feature matrix from sliding windows 
-    X,y_str= build_dataset(df, cols)
+    X, y_str, groups = build_dataset(df, cols)
 
     #encoding string labels to integers
     le= LabelEncoder()
@@ -198,7 +199,7 @@ if __name__=="__main__":
     models=get_models()
 
     #cross validating all three
-    cv_results=cross_validate(models,X,y)
+    cv_results = cross_validate(models, X, y, groups)
 
     #training the winner on all the data and saving 
     best_pipe, best_name=train_best (models, cv_results, X, y, le)

@@ -22,6 +22,8 @@ UUID_ORIENTATION = "15172002-4947-11e9-8646-d663bd873d93"
 UUID_MEDIUM      = "15172003-4947-11e9-8646-d663bd873d93"
 UUID_COMPLETE    = "15172004-4947-11e9-8646-d663bd873d93"
 
+PAYLOAD_CUSTOM_MODE_1 = 0x16   # VERIFY against your DOT BLE spec; run the sweep if unsure
+
 class MotionSketchLivePipeline:
     def __init__(self):
         print("[Engine] Loading model workspace...")
@@ -39,30 +41,37 @@ class MotionSketchLivePipeline:
         self.last_sent_label = None
 
     def parse_payload(self, data):
-        """
-        Custom Mode 1 — 40 byte packet layout:
-          bytes  0- 3 : timestamp (uint32)
-          bytes  4- 9 : Euler X, Y, Z (3 x int16, scaled x0.01)
-          bytes 10-11 : padding
-          bytes 12-23 : FreeAcc X, Y, Z (3 x float32)
-          bytes 24-35 : Gyr X, Y, Z (3 x float32)
-          bytes 36-39 : status/padding
-        """
-        try:
-            if len(data) >= 36:
-                free_acc = np.array(struct.unpack('<fff', data[12:24]))
-                gyr      = np.array(struct.unpack('<fff', data[24:36]))
-                result   = np.concatenate([free_acc, gyr])
-                # Reject if any value is NaN or unreasonably large
+            """
+            Custom Mode 1 — 40 byte packet (all IEEE-754 float32):
+            bytes  0- 3 : timestamp (uint32)
+            bytes  4-15 : Euler X, Y, Z      (3 x float32)  -- not used by the model
+            bytes 16-27 : FreeAcc X, Y, Z    (3 x float32)  -- m/s²
+            bytes 28-39 : Gyr X, Y, Z        (3 x float32)  -- deg/s
+            """
+            if len(data) < 40:
+                return None
+            try:
+                free_acc = struct.unpack('<fff', data[16:28])
+                gyr      = struct.unpack('<fff', data[28:40])
+                result   = np.array(free_acc + gyr)   # 6 channels: [FreeAcc, Gyr]
                 if np.any(np.isnan(result)) or np.any(np.abs(result) > 1e6):
                     return None
                 return result
-        except Exception as e:
-            print(f"[PARSE ERROR] {e}")
-            return None
-        return None
+            except Exception as e:
+                print(f"[PARSE ERROR] {e}")
+                return None
 
     def ble_notification_callback(self, sender, data):
+        if self.total_packets_received % 60 == 0:
+            print(f"\n[RAW] len={len(data)} hex={data.hex()}")
+            # try the float32-Euler layout:
+            ts   = struct.unpack('<I', data[0:4])[0]
+            eul  = struct.unpack('<fff', data[4:16])
+            facc = struct.unpack('<fff', data[16:28])
+            gyr  = struct.unpack('<fff', data[28:40])
+            print(f"[TEST] ts={ts} euler={np.round(eul,2)} facc={np.round(facc,3)} gyr={np.round(gyr,3)}")
+            self.total_packets_received += 1
+
         start_time = time.perf_counter()
         self.total_packets_received += 1
         
@@ -102,6 +111,8 @@ class MotionSketchLivePipeline:
         label         = self.le.inverse_transform([predicted_idx])[0]
         latency_ms    = round((time.perf_counter() - start_time) * 1000, 2)
 
+        print(f"[raw] {label:<22} {confidence:.1%}")
+
         # Only accept confident predictions
         if confidence < 0.50:
             return
@@ -133,22 +144,13 @@ async def main():
                 print("[BLE] Notification enabled on UUID_MEDIUM.")
                 await asyncio.sleep(0.5)
 
-                # Step 2 — set payload mode to Custom Mode 1
+                # Start measurement in Custom Mode 1 (mode is the 3rd byte of the START message)
                 await client.write_gatt_char(
                     CONTROL_UUID,
-                    bytearray([0x01, 0x10, 0x01]),
+                    bytearray([0x01, 0x01, PAYLOAD_CUSTOM_MODE_1]),
                     response=True
                 )
-                print("[BLE] Payload mode set to Custom Mode 1.")
-                await asyncio.sleep(0.3)
-
-                # Step 3 — start streaming
-                await client.write_gatt_char(
-                    CONTROL_UUID,
-                    bytearray([0x01, 0x01, 0x01]),
-                    response=True
-                )
-                print("[SYSTEM ONLINE] Streaming started. Wave the device!")
+                print(f"[SYSTEM ONLINE] Streaming started in Custom Mode 1 (0x{PAYLOAD_CUSTOM_MODE_1:02x}). Wave the device!")
 
                 while True:
                     await asyncio.sleep(1.0)
