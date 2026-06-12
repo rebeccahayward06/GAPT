@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
-from sklearn.model_selection import StratifiedGroupKFold, cross_val_score
+from sklearn.model_selection import StratifiedGroupKFold, cross_val_score, cross_val_predict
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline 
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -121,10 +121,11 @@ def train_best(models, cv_results, X,y,le):
 
 #evaluation and plotting 
 
-def evaluate(pipe,le,X,y,cv_results,best_name):
+def evaluate(pipe,le,X,y,groups,cv_results,best_name):
 
-    print("\n------------Classification Report-----------------")
-    y_pred=pipe.predict(X)
+    print("\n------------Classification Report (grouped CV)-----------------")
+    cv = StratifiedGroupKFold(n_splits=4, shuffle=True, random_state=42)
+    y_pred = cross_val_predict(pipe, X, y, groups=groups, cv=cv, n_jobs=-1)
     print(classification_report(y,y_pred, target_names=le.classes_))
 
     #confusion matrix and cv bar chart 
@@ -176,6 +177,9 @@ def evaluate(pipe,le,X,y,cv_results,best_name):
         print("[Eval] saved feature_importances.png")
         plt.show()
 
+# stripping left and right from labels
+def strip_side(label):
+    return label.replace('_left', '').replace('_right', '')
 
 #main
 
@@ -189,6 +193,8 @@ if __name__=="__main__":
 
     #building feature matrix from sliding windows 
     X, y_str, groups = build_dataset(df, cols)
+
+    y_str = np.array([strip_side(l) for l in y_str])   # merge L/R — side comes from the sensor live
 
     #encoding string labels to integers
     le= LabelEncoder()
@@ -205,8 +211,4 @@ if __name__=="__main__":
     best_pipe, best_name=train_best (models, cv_results, X, y, le)
 
     #evaluating with plots
-    evaluate(best_pipe, le, X, y, cv_results, best_name)
-
-    
-
-        
+    evaluate(best_pipe, le, X, y, groups, cv_results, best_name)
