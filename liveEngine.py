@@ -135,7 +135,7 @@ class SensorPipeline:
         if len(self.votes) < VOTE_WINDOW:
             return
         top, count = Counter(self.votes).most_common(1)[0]
-        if count < VOTE_AGREE or top == self.last_sent:
+        if count < VOTE_AGREE:
             return
 
         label = f"{top}_{self.side}" if self.role == "wrist" else top
