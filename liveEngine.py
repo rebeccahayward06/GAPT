@@ -49,7 +49,7 @@ CONF_THRESHOLD = 0.50
 VOTE_WINDOW = 5
 VOTE_AGREE = 3
 
-IDLE_MOTION = 5   # TUNE THIS. Below it = "not moving".
+IDLE_MOTION = 2   # TUNE THIS. Below it = "not moving".
 
 # ---- load both models once, shared across sensors ----
 MODELS = {
@@ -110,6 +110,7 @@ class SensorPipeline:
             return
 
         motion = float(np.mean(np.std(w, axis=0)))
+        # print(f"[{self.side}] motion={motion:.3f}")
         acc = w[:, 0:3]
         gyr = w[:, 3:6]
         size  = float(min(np.mean(np.linalg.norm(acc, axis=1)) / 10.0, 1.0))
