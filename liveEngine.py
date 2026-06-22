@@ -49,7 +49,7 @@ CONF_THRESHOLD = 0.50
 VOTE_WINDOW = 5
 VOTE_AGREE = 3
 
-IDLE_MOTION = 0.5   # TUNE THIS. Below it = "not moving".
+IDLE_MOTION = 5   # TUNE THIS. Below it = "not moving".
 
 # ---- load both models once, shared across sensors ----
 MODELS = {
