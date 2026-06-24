@@ -2,8 +2,9 @@ using UnityEngine;
 
 /// <summary>
 /// Attach to a helix particle system GameObject.
-/// Set targetGesture to "updown_big" or "updown_small".
-/// Set isRightArm to distinguish warm (right) from cold (left) colours,
+/// Gesture name is auto-derived from isRightArm → "updown_left" / "updown_right".
+/// Size is continuous now (brushSize → amplitude); there is no big/small variant.
+/// isRightArm also drives warm (right) vs cold (left) colours,
 /// mirrored helix direction, and X spawn side.
 ///
 /// Spawn rules:
@@ -28,11 +29,7 @@ public class HelixParticleController : MonoBehaviour
     [Tooltip("Auto-found if left empty")]
     public ScreenBounds screenBounds;
 
-    [Header("Gesture")]
-    [Tooltip("Set both to cover big and small variants e.g. updown_big_left / updown_small_left")]
-    public string targetGestureBig = "updown_big_left";
-    public string targetGestureSmall = "updown_small_left";
-
+    [Header("Arm Side")]
     [Tooltip("Off = left arm (cold, X = -8). On = right arm (warm, X = 8).")]
     public bool isRightArm = false;
 
@@ -65,6 +62,8 @@ public class HelixParticleController : MonoBehaviour
     private ParticleSystem.MainModule _main;
     private ParticleSystem.EmissionModule _emission;
     private ParticleSystem.VelocityOverLifetimeModule _vel;
+
+    private string _gesture;
 
     // Only emission and colour are smoothed continuously — all other values
     // are applied once at activation and not modulated mid-flight.
@@ -106,6 +105,11 @@ public class HelixParticleController : MonoBehaviour
 
     void Start()
     {
+        // Derived in Start so Inspector values are guaranteed applied.
+        // Size is continuous (brushSize → amplitude), so no big/small in the label.
+        string side = isRightArm ? "right" : "left";
+        _gesture = $"updown_{side}";
+
         // Build initial curves from defaults so the helix shape is ready before first activation
         RebuildHelixCurves(defaultAmplitude, defaultFrequency, defaultZSpeed);
 
@@ -121,7 +125,7 @@ public class HelixParticleController : MonoBehaviour
     // ── OSC handler ───────────────────────────────────────────────────────
     private void HandlePrediction(OSCReceiver.Prediction p)
     {
-        if (p.gestureName != targetGestureBig && p.gestureName != targetGestureSmall) return;
+        if (p.gestureName != _gesture) return;
 
         bool wasInactive = !_gestureActive ||
                            (Time.time - _lastPacketTime > gestureTimeoutSeconds);
@@ -214,16 +218,8 @@ public class HelixParticleController : MonoBehaviour
 
         // Random Y within screen bounds, fixed X side, preserve Z
         float spawnY = screenBounds != null
-            ? Random.Range(screenBounds.GetRandomPosition().y,
-                           screenBounds.GetRandomPosition().y)
+            ? screenBounds.GetRandomPosition().y
             : Random.Range(-4f, 4f);
-
-        // Use ScreenBounds for a proper random Y
-        if (screenBounds != null)
-        {
-            Vector3 randomPos = screenBounds.GetRandomPosition();
-            spawnY = randomPos.y;
-        }
 
         transform.position = new Vector3(spawnX, spawnY, transform.position.z);
     }
